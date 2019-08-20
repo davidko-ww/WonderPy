@@ -1,3 +1,7 @@
+import logging
+import math
+import time
+
 from WonderPy.core.wwConstants import WWRobotConstants
 from WonderPy.util import wwMath
 from WonderPy.components.wwSensorButton import WWSensorButton
@@ -13,11 +17,83 @@ from WonderPy.components.wwSensorGyroscope import WWSensorGyroscope
 
 _rc = WWRobotConstants.RobotComponent
 
+class Attitude():
+    ''' See: http://www.chrobotics.com/library/attitude-estimation '''
+    DYNAMIC_GAIN = 0.05
+    STATIC_GAIN = 0.5
+    DYN_STAT_THRESHOLD = 0.05
+
+    def __init__(self):
+        self._roll = 0.0
+        self._pitch = 0.0
+
+    def update(self, dt, accel_x, accel_y, accel_z, omega_x, omega_y, omega_z):
+        logging.debug('Attitude update: {} ({}, {}, {}) ({}, {}, {})'.format(dt, accel_x, accel_y, accel_z, omega_x, omega_y, omega_z))
+        # Find the magnitude of acceleration vector
+        accel_mag = math.sqrt(accel_x**2 + accel_y**2 + accel_z**2)
+        # Avoid divide-by-zero
+        if abs(accel_mag) < 0.01:
+            pitch_accel = 0
+            roll_accel = 0
+        else:
+            pitch_accel = math.asin(min(accel_x/accel_mag, 0.99))
+            roll_accel = math.atan2(float(accel_y/accel_mag), float(accel_z/accel_mag))
+
+        roll_dot = omega_x + omega_y*math.sin(self._roll)*math.tan(self._pitch) + \
+                   omega_z * math.cos(self._roll) * math.tan(self._pitch)
+
+        pitch_dot = omega_y * math.cos(self._roll) - omega_z*math.sin(self._roll)
+
+        pitch_plus = self._pitch + pitch_dot*dt
+
+        roll_plus = self._roll + roll_dot*dt
+
+        # If the accel magnitude is close to one, trust the accelerometers more
+        # than the gyros.
+        gain = self.DYNAMIC_GAIN
+        if abs(accel_mag - 1.0) < self.DYN_STAT_THRESHOLD:
+            gain = self.STATIC_GAIN
+
+        self._pitch = pitch_plus + gain*(pitch_accel - pitch_plus)
+        self._roll = roll_plus + gain*(roll_accel - roll_plus)
+        logging.debug('Pitch: {}, Roll: {}'.format(self._pitch, self._roll))
+
+        if math.isnan(self._pitch) or math.isnan(self._roll):
+            logging.error('pitch_dot: {}, roll_dot: {}'.format(pitch_dot, roll_dot))
+            logging.error('Pitch: {}, roll: {}'.format(self._pitch, self._roll))
+            raise Exception('Attitude estimation failed.')
+
+    def get_A(self):
+        # Get the rotation matrix. Requires numpy.
+        import numpy as np
+        roll = np.array([ [1, 0, 0], 
+                          [0, math.cos(-self._roll), -math.sin(-self._roll)],
+                          [0, math.sin(-self._roll), math.cos(-self._roll)] ] )
+        pitch = np.array([ [math.cos(-self._pitch), -math.sin(-self._pitch), 0 ],
+                           [math.sin(-self._pitch), math.cos(-self._pitch), 0],
+                           [0, 0, 1] ])
+        A = np.dot(pitch, roll)
+        return A
+
+    def __str__(self):
+        return '(roll: {}, pitch: {})'.format(self.roll, self.pitch)
+
+    @property
+    def roll(self):
+        return self._roll*180.0/math.pi
+
+    @property
+    def pitch(self):
+        return self._pitch*180.0/math.pi
 
 class WWSensors(object):
 
     def __init__(self, robot):
         self.setup_all_sensors(robot)
+
+        self._attitude = Attitude()
+
+        self.__last_parse_time = time.time()
 
     # the approach here is to have an object for ALL POSSIBLE sensors.
     # each packet which comes in will mark each contained sensor as "valid".
@@ -84,6 +160,10 @@ class WWSensors(object):
     @property
     def animation(self):
         return self._animation
+
+    @property
+    def attitude(self):
+        return self._attitude
 
     @property
     def beacon(self):
@@ -160,6 +240,18 @@ class WWSensors(object):
                     component.parse(sensorDict[component_id])
 
         self._backfill_beacon(sensorDict)
+
+        # Update our attitude estimation
+        current_time = time.time()
+        self.attitude.update( 
+            current_time - self.__last_parse_time,
+            self.accelerometer.y, 
+            self.accelerometer.x,
+            self.accelerometer.z,
+            self.gyroscope.y*math.pi/180.0,
+            self.gyroscope.x*math.pi/180.0,
+            self.gyroscope.z*math.pi/180.0)
+        self.__last_parse_time = current_time
 
     def _backfill_beacon(self, sensor_dict):
         # we only get beacon sensors if something is seen, and not if something is not seen.
