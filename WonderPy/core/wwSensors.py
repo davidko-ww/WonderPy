@@ -2,6 +2,7 @@ from WonderPy.core.wwConstants import WWRobotConstants
 from WonderPy.util import wwMath
 from WonderPy.components.wwSensorButton import WWSensorButton
 from WonderPy.components.wwSensorAccelerometer import WWSensorAccelerometer
+from WonderPy.components.wwSensorAttitude import WWSensorAttitude
 from WonderPy.components.wwSensorPose import WWSensorPose
 from WonderPy.components.wwSensorPing import WWSensorPing
 from WonderPy.components.wwSensorMedia import WWSensorMedia
@@ -56,6 +57,8 @@ class WWSensors(object):
         self._wheel_left                  = WWSensorWheel        (robot)
         self._wheel_right                 = WWSensorWheel        (robot)
 
+        self._attitude                    = WWSensorAttitude     (robot)
+
         self._component_look_up = {
             _rc.WW_SENSOR_ACCELEROMETER               : self._accelerometer,
             _rc.WW_SENSOR_ANIMATION_PLAYING           : self._animation,
@@ -75,6 +78,7 @@ class WWSensors(object):
             _rc.WW_SENSOR_GYROSCOPE                   : self._gyroscope,
             _rc.WW_SENSOR_PING_RESPONSE               : self._ping,
             _rc.WW_SENSOR_SOUND_PLAYING               : self._speaker,
+            _rc.WW_SENSOR_ATTITUDE                    : self._attitude,
         }
 
     @property
@@ -84,6 +88,10 @@ class WWSensors(object):
     @property
     def animation(self):
         return self._animation
+
+    @property
+    def attitude(self):
+        return self._attitude
 
     @property
     def beacon(self):
@@ -148,6 +156,10 @@ class WWSensors(object):
     @property
     def wheel_right(self):
         return self._wheel_right
+
+    @property
+    def attitude(self):
+        return self._attitude
 
     def parse(self, sensorDict):
         for component_id in sensorDict:

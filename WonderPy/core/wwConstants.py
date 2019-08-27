@@ -76,6 +76,7 @@ class WWRobotConstants(object):
         WW_SENSOR_BATTERY                     = '3006'
         WW_SENSOR_BEACON                      = '3007'  # seeing another dash or dot
         WW_SENSOR_BEACON_V2                   = '3009'
+        WW_SENSOR_ATTITUDE                    = '3010'
         WW_SENSOR_PICKED_UP                   = '4001'  # note= has significant false negatives
         WW_SENSOR_BUMP_STALL                  = '4002'  # note= has significant false negatives
         WW_SENSOR_SOUND_PLAYING               = '4003'  # on-robot sound     is playing
@@ -122,6 +123,7 @@ class WWRobotConstants(object):
             WW_SENSOR_BODY_POSE                   : 'WW_SENSOR_BODY_POSE',
             WW_SENSOR_ACCELEROMETER               : 'WW_SENSOR_ACCELEROMETER',
             WW_SENSOR_GYROSCOPE                   : 'WW_SENSOR_GYROSCOPE',
+            WW_SENSOR_ATTITUDE                    : 'WW_SENSOR_ATTITUDE',
             WW_SENSOR_DISTANCE_FRONT_LEFT_FACING  : 'WW_SENSOR_DISTANCE_FRONT_LEFT_FACING',
             WW_SENSOR_DISTANCE_FRONT_RIGHT_FACING : 'WW_SENSOR_DISTANCE_FRONT_RIGHT_FACING',
             WW_SENSOR_DISTANCE_BACK               : 'WW_SENSOR_DISTANCE_BACK',
@@ -250,6 +252,8 @@ class WWRobotConstants(object):
         WW_SENSOR_VALUE_SOUND_AMPLITUDE                  = "amp"
         WW_SENSOR_VALUE_SPEED                            = "cm/s"
         WW_SENSOR_VALUE_SUBTYPE                          = "type"
+        WW_SENSOR_VALUE_ATTITUDE_ROLL                    = 'attitudeRoll'
+        WW_SENSOR_VALUE_ATTITUDE_PITCH                   = 'attitudePitch'
         WW_COMMAND_VALUE_LINEAR_VELOCITY_CM_S            = "linear_cm_s"
         WW_COMMAND_VALUE_ANGULAR_VELOCITY_DEG_S          = "angular_deg_s"
         WW_COMMAND_VALUE_LINEAR_ACCELERATION_CM_S_S      = "linear_acc_cm_s_s"
