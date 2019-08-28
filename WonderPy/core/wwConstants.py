@@ -252,8 +252,12 @@ class WWRobotConstants(object):
         WW_SENSOR_VALUE_SOUND_AMPLITUDE                  = "amp"
         WW_SENSOR_VALUE_SPEED                            = "cm/s"
         WW_SENSOR_VALUE_SUBTYPE                          = "type"
-        WW_SENSOR_VALUE_ATTITUDE_ROLL                    = 'attitudeRoll'
-        WW_SENSOR_VALUE_ATTITUDE_PITCH                   = 'attitudePitch'
+        WW_SENSOR_VALUE_ATTITUDE_ROLL                    = "attitudeRoll"
+        WW_SENSOR_VALUE_ATTITUDE_PITCH                   = "attitudePitch"
+        WW_SENSOR_VALUE_ATTITUDE_SLOPE                   = "attitudeSlope"
+        WW_SENSOR_VALUE_ATTITUDE_ROLL_TYPE               = "rollType"
+        WW_SENSOR_VALUE_ATTITUDE_PITCH_TYPE              = "pitchType"
+        WW_SENSOR_VALUE_ATTITUDE_SLOPE_TYPE              = "slopeType"
         WW_COMMAND_VALUE_LINEAR_VELOCITY_CM_S            = "linear_cm_s"
         WW_COMMAND_VALUE_ANGULAR_VELOCITY_DEG_S          = "angular_deg_s"
         WW_COMMAND_VALUE_LINEAR_ACCELERATION_CM_S_S      = "linear_acc_cm_s_s"
