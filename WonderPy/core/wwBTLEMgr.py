@@ -22,6 +22,7 @@ else:
 
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
+from .wwHAL import WWHAL, two_packet_wrappers
 from WonderPy.core import wwMain
 from WonderPy.config import WW_ROOT_DIR
 
@@ -29,6 +30,13 @@ from WonderPy.config import WW_ROOT_DIR
 class WWException(Exception):
         pass
 
+class two_packet_wrappers(ctypes.Structure):
+    _fields_ = [
+        ('packet1_bytes_num', ctypes.c_byte),
+        ('packet1_bytes'    , ctypes.c_byte * 20),
+        ('packet2_bytes_num', ctypes.c_byte),
+        ('packet2_bytes'    , ctypes.c_byte * 20),
+    ]
 
 # Define service and characteristic UUIDs used by the WW devices.
 WW_SERVICE_UUID_D1     = uuid.UUID('AF237777-879D-6186-1F49-DECA0E85D9C1')   # dash and dot
@@ -47,9 +55,11 @@ CHAR_UUID_SENSOR1      = uuid.UUID('AF230006-879D-6186-1F49-DECA0E85D9C1')   # s
 CONNECTION_INTERVAL_MS  = 12
 
 
-class WWBTLEManager(object):
+class WWBTLEManager(WWHAL):
 
     def __init__(self, delegate, arguments=None):
+
+        super().__init__(delegate)
 
         if arguments is None:
             parser = argparse.ArgumentParser(description='Options.')
@@ -57,14 +67,6 @@ class WWBTLEManager(object):
             arguments = parser.parse_args()
 
         self._args = arguments
-
-        self.delegate = delegate
-
-        self._load_HAL()
-
-        self.robot = None
-
-        self._sensor_queue = queue.Queue()
 
         # Initialize the BLE system.  MUST be called before other BLE calls!
         self.ble = Adafruit_BluefruitLE.get_provider()
@@ -83,37 +85,41 @@ class WWBTLEManager(object):
         parser.add_argument('--connect-ask', action='store_true',
                             help='interactively ask which of the qualifying robots you\'d like to connect to')
 
-    class two_packet_wrappers(ctypes.Structure):
-        _fields_ = [
-            ('packet1_bytes_num', ctypes.c_byte),
-            ('packet1_bytes'    , ctypes.c_byte * 20),
-            ('packet2_bytes_num', ctypes.c_byte),
-            ('packet2_bytes'    , ctypes.c_byte * 20),
-        ]
-
-    def _load_HAL(self):
-        import platform
-        if platform.system() == 'Darwin':
-            HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/osx/libWWHAL.dylib')
-        elif platform.system() == 'Linux':
-            HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/linux_x64/libWWHAL.so')
-        else:
-            raise Exception('Platform not supported: {}'.format(system.platform))
-        self.libHAL = ctypes.cdll.LoadLibrary(HAL_path)
-        self.libHAL.packets2Json.restype  = (ctypes.c_char_p)
-        # self.libHAL.json2Packets.argtypes = (c_char_p, WWBTLEManager.two_packet_wrappers)
-
     @staticmethod
     def byteArrayToCharArray(ba):
         char_array = [ctypes.c_char] * len(ba)
         return char_array.from_buffer(ba)
 
-    @staticmethod
-    def string_into_c_byte_array(str, cba):
-        n = 0
-        for c in str:
-            cba[n] = ord(c)
-            n += 1
+    # Function to receive RX characteristic changes.  Note that this will
+    # be called on a different thread so be careful to make sure state that
+    # the function changes is thread safe.  Use queue or other thread-safe
+    # primitives to send data to other threads.
+    def on_data_sensor0(self, data):
+        self.robot._sensor_packet_1 = data
+        if not self.robot.expect_sensor_packet_2:
+            p1 = self.robot._sensor_packet_1
+            pw = WWBTLEManager.two_packet_wrappers()
+            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
+            pw.packet1_bytes_num = len(p1)
+            pw.packet2_bytes_num =      0
+            json_string = self.libHAL.packets2Json(pw)
+            self._sensor_queue.put(json.loads(json_string))
+            self.robot._sensor_packet_1 = None
+
+    def on_data_sensor1(self, data):
+        self.robot._sensor_packet_2 = data
+        if self.robot._sensor_packet_1 is not None:
+            p1 = self.robot._sensor_packet_1
+            p2 = self.robot._sensor_packet_2
+            pw = WWBTLEManager.two_packet_wrappers()
+            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
+            pw.packet1_bytes_num = len(p1)
+            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_2, pw.packet2_bytes)
+            pw.packet2_bytes_num = len(p2)
+            json_string = self.libHAL.packets2Json(pw)
+            self._sensor_queue.put(json.loads(json_string))
+            self.robot._sensor_packet_1 = None
+            self.robot._sensor_packet_2 = None
 
     def scan_and_connect(self):
         # Clear any cached data because both bluez and CoreBluetooth have issues with
@@ -299,42 +305,11 @@ class WWBTLEManager(object):
             for c in src:
                 dst[n] = ord(c)
 
-        # Function to receive RX characteristic changes.  Note that this will
-        # be called on a different thread so be careful to make sure state that
-        # the function changes is thread safe.  Use queue or other thread-safe
-        # primitives to send data to other threads.
-        def on_data_sensor0(data):
-            self.robot._sensor_packet_1 = data
-            if not self.robot.expect_sensor_packet_2:
-                p1 = self.robot._sensor_packet_1
-                pw = WWBTLEManager.two_packet_wrappers()
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
-                pw.packet1_bytes_num = len(p1)
-                pw.packet2_bytes_num =      0
-                json_string = self.libHAL.packets2Json(pw)
-                self._sensor_queue.put(json.loads(json_string))
-                self.robot._sensor_packet_1 = None
-
-        def on_data_sensor1(data):
-            self.robot._sensor_packet_2 = data
-            if self.robot._sensor_packet_1 is not None:
-                p1 = self.robot._sensor_packet_1
-                p2 = self.robot._sensor_packet_2
-                pw = WWBTLEManager.two_packet_wrappers()
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
-                pw.packet1_bytes_num = len(p1)
-                WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_2, pw.packet2_bytes)
-                pw.packet2_bytes_num = len(p2)
-                json_string = self.libHAL.packets2Json(pw)
-                self._sensor_queue.put(json.loads(json_string))
-                self.robot._sensor_packet_1 = None
-                self.robot._sensor_packet_2 = None
-
         # Turn on notification of RX characteristics using the callback above.
         # print('Subscribing to characteristics...')
-        self.char_sensor0.start_notify(on_data_sensor0)
+        self.char_sensor0.start_notify(self.on_data_sensor0)
         if self.robot.expect_sensor_packet_2:
-            self.char_sensor1.start_notify(on_data_sensor1)
+            self.char_sensor1.start_notify(self.on_data_sensor1)
 
         print('Connected to \'%s\'!' % (self.robot.name))
 
@@ -371,7 +346,7 @@ class WWBTLEManager(object):
 
         json_str = json.dumps(dict)
 
-        packets = WWBTLEManager.two_packet_wrappers()
+        packets = two_packet_wrappers()
 
         self.libHAL.json2Packets(json_str, ctypes.byref(packets))
 

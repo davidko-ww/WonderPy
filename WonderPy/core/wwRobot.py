@@ -27,7 +27,7 @@ class WWRobot(object):
 
         # note: device.manufacturerData is only present when ADAFruit has been patched
         #       with this: https://github.com/adafruit/Adafruit_Python_BluefruitLE/pull/33
-        self.parseManufacturerData(btleDevice.manufacturerData)
+        # self.parseManufacturerData(btleDevice.manufacturerData)
 
         self._command_queue = queue.Queue()
 
