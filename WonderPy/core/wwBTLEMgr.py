@@ -92,8 +92,13 @@ class WWBTLEManager(object):
         ]
 
     def _load_HAL(self):
-
-        HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/osx/libWWHAL.dylib')
+        import platform
+        if platform.system() == 'Darwin':
+            HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/osx/libWWHAL.dylib')
+        elif platform.system() == 'Linux':
+            HAL_path = os.path.join(WW_ROOT_DIR, 'lib/WonderWorkshop/linux_x64/libWWHAL.so')
+        else:
+            raise Exception('Platform not supported: {}'.format(system.platform))
         self.libHAL = ctypes.cdll.LoadLibrary(HAL_path)
         self.libHAL.packets2Json.restype  = (ctypes.c_char_p)
         # self.libHAL.json2Packets.argtypes = (c_char_p, WWBTLEManager.two_packet_wrappers)
@@ -149,7 +154,9 @@ class WWBTLEManager(object):
                 sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
                                  (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
                 sys.stdout.flush()
-                for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
+                # for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
+                for d in self.ble.find_devices():
+                    print('Founb robot: {}'.format(d))
                     rob = WWRobot(d)
 
                     # filters
