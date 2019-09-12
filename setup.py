@@ -10,7 +10,8 @@ install_requires = ['mock', 'svgpathtools']
 if platform.system() == 'Darwin':
     install_requires += 'PyObjC'
 elif platform.system() == 'Linux':
-    install_requires += ['dbus-python', 'Adafruit_Python_BluefruitLE']
+    # install_requires += ['dbus-python', 'Adafruit_Python_BluefruitLE']
+    install_requires += ['dbus-python']
 
 setuptools.setup(
     name="WonderPy",

@@ -22,21 +22,13 @@ else:
 
 from .wwRobot import WWRobot
 from .wwConstants import WWRobotConstants
-from .wwHAL import WWHAL, two_packet_wrappers
+from .wwHAL import WWHAL
 from WonderPy.core import wwMain
 from WonderPy.config import WW_ROOT_DIR
 
 
 class WWException(Exception):
         pass
-
-class two_packet_wrappers(ctypes.Structure):
-    _fields_ = [
-        ('packet1_bytes_num', ctypes.c_byte),
-        ('packet1_bytes'    , ctypes.c_byte * 20),
-        ('packet2_bytes_num', ctypes.c_byte),
-        ('packet2_bytes'    , ctypes.c_byte * 20),
-    ]
 
 # Define service and characteristic UUIDs used by the WW devices.
 WW_SERVICE_UUID_D1     = uuid.UUID('AF237777-879D-6186-1F49-DECA0E85D9C1')   # dash and dot
@@ -53,6 +45,32 @@ CHAR_UUID_SENSOR1      = uuid.UUID('AF230006-879D-6186-1F49-DECA0E85D9C1')   # s
 # typically we're able to just use the default of about 30ms,
 # but with the python/osx version we find that a smaller value is needed.
 CONNECTION_INTERVAL_MS  = 12
+
+def parseManufacturerData(manuData):
+    """parse the manufacturer data portion of the BTLE advertisement"""
+
+    if not manuData:
+        print("error: no manufacturer data. robot: %s" % (self.name))
+        return
+
+    return robot_type_from_manufacturer_data(manuData)
+
+def robot_type_from_manufacturer_data(manu_data):
+    mode = manu_data[0] & 0x03
+    if   manu_data[1] == 1 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
+        return WWRobotConstants.RobotType.WW_ROBOT_DASH
+    elif manu_data[1] == 1 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
+        return WWRobotConstants.RobotType.WW_ROBOT_DASH_DFU
+    elif manu_data[1] == 2 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
+        return WWRobotConstants.RobotType.WW_ROBOT_DOT
+    elif manu_data[1] == 2 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
+        return WWRobotConstants.RobotType.WW_ROBOT_DOT_DFU
+    elif manu_data[1] == 3 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
+        return WWRobotConstants.RobotType.WW_ROBOT_CUE
+    elif manu_data[1] == 3 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
+        return WWRobotConstants.RobotType.WW_ROBOT_CUE_DFU
+
+    return WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
 
 
 class WWBTLEManager(WWHAL):
@@ -89,6 +107,16 @@ class WWBTLEManager(WWHAL):
     def byteArrayToCharArray(ba):
         char_array = [ctypes.c_char] * len(ba)
         return char_array.from_buffer(ba)
+
+
+    class two_packet_wrappers(ctypes.Structure):
+        _fields_ = [
+            ('packet1_bytes_num', ctypes.c_byte),
+            ('packet1_bytes'    , ctypes.c_byte * 20),
+            ('packet2_bytes_num', ctypes.c_byte),
+            ('packet2_bytes'    , ctypes.c_byte * 20),
+        ]
+
 
     # Function to receive RX characteristic changes.  Note that this will
     # be called on a different thread so be careful to make sure state that
@@ -163,7 +191,8 @@ class WWBTLEManager(WWHAL):
                 # for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
                 for d in self.ble.find_devices():
                     print('Founb robot: {}'.format(d))
-                    rob = WWRobot(d)
+                    robot_type = parseManufacturerData(d.manufacturerData)
+                    rob = WWRobot(robot_type)
 
                     # filters
                     it_passes = True
@@ -218,7 +247,8 @@ class WWBTLEManager(WWHAL):
             sys.stdout.write("found but skipping: ")
             delim = ""
             for d in devices_no:
-                r = WWRobot(d)
+                robot_type = parseManufacturerData(d.manufacturerData)
+                r = WWRobot(robot_type)
                 sys.stdout.write("%s%s '%s'" % (delim, r.robot_type_name, r.name))
                 delim = ', '
             sys.stdout.write('.\n')
@@ -245,7 +275,8 @@ class WWBTLEManager(WWHAL):
                 print("Suitable robots:")
                 map = {}
                 for d in devices:
-                    r = WWRobot(d)
+                    robot_type = parseManufacturerData(d.manufacturerData)
+                    r = WWRobot(robot_type)
                     n = len(map) + 1
                     map[str(n)] = d
                     icon = u'📶' if d == loudest_device else u'⏹'
@@ -265,7 +296,8 @@ class WWBTLEManager(WWHAL):
 
                 print("found %d suitable robots, choosing the best signal" % (len(devices)))
 
-        self.robot = WWRobot(device)
+        robot_type = parseManufacturerData(device.manufacturerData)
+        self.robot = WWRobot(robot_type)
         self.robot._sendJson = self.sendJson
 
         print('Connecting to ' + self.robot.robot_type_name + ' "%s"' % (self.robot.name))

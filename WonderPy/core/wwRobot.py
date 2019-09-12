@@ -1,3 +1,4 @@
+import logging
 import time
 import sys
 
@@ -22,8 +23,8 @@ _rc = WWRobotConstants.RobotComponent
 
 class WWRobot(object):
 
-    def __init__(self, btleDevice):
-        self._btleDevice = btleDevice
+    def __init__(self, robot_type):
+        self._robot_type = robot_type
 
         # note: device.manufacturerData is only present when ADAFruit has been patched
         #       with this: https://github.com/adafruit/Adafruit_Python_BluefruitLE/pull/33
@@ -58,7 +59,9 @@ class WWRobot(object):
 
     @property
     def name(self):
-        return self._btleDevice.name
+        # return self._btleDevice.name
+        logging.warning('Need to reimplement this')
+        return 'Dash'
 
     @property
     def robot_type(self):
@@ -113,38 +116,6 @@ class WWRobot(object):
     @property
     def sensor_count(self):
         return self._sensor_count
-
-    def parseManufacturerData(self, manuData):
-        """parse the manufacturer data portion of the BTLE advertisement"""
-
-        self._robot_type = WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
-        self._sendJson   = None
-        self._mode       = WWRobotConstants.RobotMode.ROBOT_MODE_UNKNOWN
-
-        if not manuData:
-            print("error: no manufacturer data. robot: %s" % (self.name))
-            return
-
-        self._mode       = manuData[0] & 0x03
-        self._robot_type = WWRobot.robot_type_from_manufacturer_data(manuData)
-
-    @staticmethod
-    def robot_type_from_manufacturer_data(manu_data):
-        mode = manu_data[0] & 0x03
-        if   manu_data[1] == 1 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
-            return WWRobotConstants.RobotType.WW_ROBOT_DASH
-        elif manu_data[1] == 1 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
-            return WWRobotConstants.RobotType.WW_ROBOT_DASH_DFU
-        elif manu_data[1] == 2 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
-            return WWRobotConstants.RobotType.WW_ROBOT_DOT
-        elif manu_data[1] == 2 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
-            return WWRobotConstants.RobotType.WW_ROBOT_DOT_DFU
-        elif manu_data[1] == 3 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_APP:
-            return WWRobotConstants.RobotType.WW_ROBOT_CUE
-        elif manu_data[1] == 3 and mode == WWRobotConstants.RobotMode.ROBOT_MODE_BL:
-            return WWRobotConstants.RobotType.WW_ROBOT_CUE_DFU
-
-        return WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
 
     def stage_cmds(self, cmds):
         """takes a dictionary who's keys are command components and values are the parameters for each"""
