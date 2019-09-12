@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 import platform
 install_requires = ['mock', 'svgpathtools']
 if platform.system() == 'Darwin':
-    install_requires += 'PyObjC'
+    install_requires += ['PyObjC']
 elif platform.system() == 'Linux':
     # install_requires += ['dbus-python', 'Adafruit_Python_BluefruitLE']
     install_requires += ['dbus-python']

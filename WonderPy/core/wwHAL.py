@@ -5,12 +5,6 @@ import queue
 
 from WonderPy.config import WW_ROOT_DIR
 
-def string_into_c_byte_array(str, cba):
-    n = 0
-    for c in str:
-        cba[n] = ord(c)
-        n += 1
-
 class WWHAL:
     def __init__(self, delegate):
         self.delegate = delegate

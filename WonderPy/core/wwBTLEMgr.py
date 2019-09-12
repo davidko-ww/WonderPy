@@ -72,6 +72,12 @@ def robot_type_from_manufacturer_data(manu_data):
 
     return WWRobotConstants.RobotType.WW_ROBOT_UNKNOWN
 
+def string_into_c_byte_array(str, cba):
+    n = 0
+    for c in str:
+        cba[n] = c
+        n += 1
+
 
 class WWBTLEManager(WWHAL):
 
@@ -127,7 +133,7 @@ class WWBTLEManager(WWHAL):
         if not self.robot.expect_sensor_packet_2:
             p1 = self.robot._sensor_packet_1
             pw = WWBTLEManager.two_packet_wrappers()
-            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
+            string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
             pw.packet1_bytes_num = len(p1)
             pw.packet2_bytes_num =      0
             json_string = self.libHAL.packets2Json(pw)
@@ -140,9 +146,9 @@ class WWBTLEManager(WWHAL):
             p1 = self.robot._sensor_packet_1
             p2 = self.robot._sensor_packet_2
             pw = WWBTLEManager.two_packet_wrappers()
-            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
+            string_into_c_byte_array(self.robot._sensor_packet_1, pw.packet1_bytes)
             pw.packet1_bytes_num = len(p1)
-            WWBTLEManager.string_into_c_byte_array(self.robot._sensor_packet_2, pw.packet2_bytes)
+            string_into_c_byte_array(self.robot._sensor_packet_2, pw.packet2_bytes)
             pw.packet2_bytes_num = len(p2)
             json_string = self.libHAL.packets2Json(pw)
             self._sensor_queue.put(json.loads(json_string))
@@ -188,9 +194,9 @@ class WWBTLEManager(WWHAL):
                 sys.stdout.write('\rmatching robots: %d  non-matching robots: %d %s%s' %
                                  (len(devices), len(devices_no), '.' * ticks, ' ' * 8))
                 sys.stdout.flush()
-                # for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
-                for d in self.ble.find_devices():
-                    print('Founb robot: {}'.format(d))
+                for d in self.ble.find_devices(service_uuids=WW_SERVICE_IDS):
+                # for d in self.ble.find_devices():
+                    print('Found robot: {}'.format(d))
                     robot_type = parseManufacturerData(d.manufacturerData)
                     rob = WWRobot(robot_type)
 
@@ -378,9 +384,11 @@ class WWBTLEManager(WWHAL):
 
         json_str = json.dumps(dict)
 
-        packets = two_packet_wrappers()
+        packets = WWBTLEManager.two_packet_wrappers()
 
-        self.libHAL.json2Packets(json_str, ctypes.byref(packets))
+        print('Encoding json to packets: {}'.format(json_str))
+        self.libHAL.json2Packets(json_str.encode(), ctypes.byref(packets))
+        print('Encoding json to packets: {} done'.format(json_str))
 
         if (packets.packet1_bytes_num > 0):
             self.char_cmd.write_value(packets.packet1_bytes)
